@@ -19,6 +19,7 @@ int main(void) {
 }
 ```
 
+
 | Function                                                                  | Description                                                            |
 | :------------                                                             |   :---:                                                                |
 | ```Str str_new(char *string)```                                           | Returns a new string                                                   | 
