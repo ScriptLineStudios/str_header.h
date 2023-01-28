@@ -1,5 +1,5 @@
 # str_header.h
-A header only C string library
+## A header only C string library
 
 ```C
 #define STR_HEADER_IMPLEMENTATION
