@@ -1,6 +1,7 @@
 # str_header.h
 A header only C string library
 
-| Function | Description |
-| ------- | --- | --- |
-| str_new | 301 | 283 |
+| FirstName     | LastName      | City  |
+| :------------ |   :---:       | --------: |
+| `John`        | Test1         | `NewYork`   |
+| `Bob`         | Test2         | `Los Angeles`   |
