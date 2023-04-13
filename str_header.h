@@ -8,215 +8,184 @@
 #ifndef STR_HEADER
 #define STR_HEADER
 
-
-#define STR_FUNCTION static inline
 typedef struct {
-    char *c_string;
-    uint32_t length;
+    char *string;
+    size_t length;
 } Str;
 
-STR_FUNCTION Str str_new(char *string);
-STR_FUNCTION Str str_concat(Str str1, Str str2);
-STR_FUNCTION Str str_upper(Str str);
-STR_FUNCTION Str str_capitalize(Str str);
-STR_FUNCTION Str str_lower(Str str);
-STR_FUNCTION Str str_copy(Str str);
-STR_FUNCTION Str str_substr(Str str, uint32_t start, uint32_t end);
-STR_FUNCTION Str str_new_from_string(char *allocated_string);
-STR_FUNCTION Str str_pad_right(Str str, char padding, uint32_t target_length);
-STR_FUNCTION Str str_pad_left(Str str, char padding, uint32_t target_length);
-STR_FUNCTION Str str_mult(Str str, uint32_t amount);
-STR_FUNCTION Str str_from_file(FILE *file);
-STR_FUNCTION Str str_push(Str str, char character);
-STR_FUNCTION Str str_replace(Str str, char *dest, char *src);
+typedef struct {
+    Str **strs;
+    size_t num_strs;
+    size_t current_str;
+} StrArray;
 
-STR_FUNCTION bool str_equals(Str str1, Str str2);
-STR_FUNCTION char str_char_at(Str str1, int index);
-STR_FUNCTION char str_pop(Str *str);
-STR_FUNCTION void str_free(Str str);
-STR_FUNCTION void str_print(Str str);
+typedef struct {
+    FILE *file;
+    size_t fp;
+} StrReader;
 
-#define STR_ERROR(format, ...) do{printf("\033[31mStr error: \033[0m"); printf (format, ##__VA_ARGS__);exit(1);}while(0)
-#define STR_C(str) str.c_string
-#define STR_NEW(str) str_new(str)
+Str *str_new(char *string);
+StrArray *str_array_new();
+StrReader *str_file_reader_new(FILE *file);
+
+StrArray *str_split_by(Str *str, const char delim);
+
+Str *str_new_blank(size_t length);
+Str *str_concat(Str *str1, Str *str2);
+Str *str_read_line(StrReader *reader);
+
+void str_free(Str *str);
+void str_reader_free(StrReader *reader);
+
+void *str_realloc(Str *str, size_t new_size);
+void *str_append(Str *str, const char new_char);
 
 #endif
 
 #ifdef STR_HEADER_IMPLEMENTATION
 
-STR_FUNCTION Str str_new(char *string) {
-    Str str;
-    char *c_string = malloc(sizeof(char) * strlen(string));
-    for (int i = 0; i < strlen(string); i++) {
-        c_string[i] = string[i];
+StrReader *str_reader_new(FILE *file) {
+    StrReader *reader = malloc(sizeof(StrReader));
+    reader->file = file;
+    reader->fp = 0;
+    return reader;
+}
+
+Str *str_read_line(StrReader *reader) {
+    Str *str = str_new_blank(0);
+
+    char c;
+    while ((c = fgetc(reader->file)) != '\n') {
+        if (feof(reader->file)) {
+            break;
+        }
+        str_append(str, c);
     }
-    str.c_string = c_string;
-    str.length = strlen(string);
+    
     return str;
 }
 
-STR_FUNCTION Str str_concat(Str str1, Str str2) {
-    char *new_str = realloc(str1.c_string, sizeof(char) * (str1.length + str2.length));
-    for (int s1 = 0; s1 < str1.length; s1++) {
-        new_str[s1] = str1.c_string[s1];
-    }    
-    for (int s2 = str1.length; s2 < str1.length+str2.length; s2++) {
-        new_str[s2] = str2.c_string[s2 - str1.length];
-    }    
-    str1.length = str1.length + str2.length;
-    str1.c_string = new_str;
-    return str1;
+void str_reader_free(StrReader *reader) {
+    fclose(reader->file);
+    free(reader);
 }
 
-STR_FUNCTION Str str_copy(Str str) {
-    return str_new(str.c_string);
+Str *str_copy(Str *str) {
+    return str_new(str->string);
 }
 
-STR_FUNCTION Str str_upper(Str str) {
-    Str return_str;
-    for (int i = 0; i < str.length; i++) {
-        if (islower(str.c_string[i])) {
-            str.c_string[i] -= 32;
+StrArray *str_array_new() {
+    StrArray *array = malloc(sizeof(StrArray));
+    array->num_strs = 0;
+    array->current_str = 0;
+    array->strs = (Str **)malloc(sizeof(Str*) * array->num_strs);
+    return array;
+}
+
+void str_array_realloc(StrArray *array) {
+    array->num_strs++;
+    array->strs = realloc(array->strs, sizeof(Str*) * array->num_strs);
+}
+
+void str_array_add(StrArray *array, Str *str) {
+    str_array_realloc(array);
+    array->strs[array->num_strs - 1] = str;
+}
+
+
+Str *str_new(char *string) {
+    Str *str = malloc(sizeof(Str));
+    str->string = malloc(sizeof(char) * strlen(string));
+    str->length = strlen(string);
+    for (int i = 0; i < str->length; i++) {
+        str->string[i] = string[i];
+    }
+    return str;
+}
+
+Str *str_new_blank(size_t length) { 
+    Str *str = malloc(sizeof(Str));
+    str->string = malloc(sizeof(char) * length);
+    str->length = length;
+    return str;
+}
+
+Str *str_concat(Str *str1, Str *str2) {
+    size_t new_length = str1->length + str2->length;
+    Str *new_str = str_new_blank(new_length);
+    for (int i = 0; i < str1->length; i++) {
+        new_str->string[i] = str1->string[i];
+    }
+    for (int i = str1->length; i < new_length; i++) {
+        new_str->string[i] = str2->string[i - str1->length];
+    }
+    str_free(str1);
+    str_free(str2);
+    return new_str;
+}
+
+void str_resize(Str *str, size_t new_length) {
+    str->length = 0;
+    str->string = realloc(str->string, sizeof(char) * str->length);
+}
+
+StrArray *str_split_by(Str *str, const char delim) {
+    //this function is kinda goofy ngl
+    StrArray *array = str_array_new();
+    Str *tmp = str_new_blank(0);
+
+    int reference_count = 0;
+    void **references = malloc(sizeof(void *) * reference_count);
+    size_t size = 0;
+    for (int i = 0; i < str->length; i++) {
+        if (str->string[i] != delim) {
+            str_append(tmp, str->string[i]);
+            size++;
+        }
+        else {
+            tmp->string[size] = '\0';
+            str_array_add(array, str_copy(tmp));
+
+            reference_count++;
+            references = realloc(references, sizeof(void *) * reference_count);
+            references[reference_count - 1] = (void *)tmp;
+
+            tmp = str_new_blank(0);
+            size = 0;
         }
     }
-    return_str = str_copy(str);
-    str_free(str);
-    return return_str;
-}
+    str_array_add(array, str_copy(tmp));
 
-STR_FUNCTION Str str_capitalize(Str str) {
-    Str return_str;
-    if (islower(str.c_string[0])) {
-        str.c_string[0] -= 32;
+    for (int i = 0; i < reference_count; i++) {
+        str_free(references[i]);
     }
-    return_str = str_copy(str);
-    str_free(str);
-    return return_str;
+    str_free(tmp);
+    free(references);
+
+    return array;
+}
+ 
+void *str_realloc(Str *str, size_t new_size) {
+    str->length = new_size;
+    str->string = realloc(str->string, sizeof(char) * new_size);
 }
 
-STR_FUNCTION Str str_lower(Str str) {
-    Str return_str;
-    for (int i = 0; i < str.length; i++) {
-        if (isupper(str.c_string[i])) {
-            str.c_string[i] += 32;
-        }
+void *str_append(Str *str, const char new_char) {
+    str_realloc(str, str->length + 1);
+    str->string[str->length-1] = new_char;
+}
+
+void str_free(Str *str) {
+    free(str->string);
+    free(str);
+}
+
+void str_array_free(StrArray *array) {
+    for (int i = 0; i < array->num_strs; i++) {
+        str_free(array->strs[i]);
     }
-    return_str = str_copy(str);
-    str_free(str);
-    return return_str;
-}
-
-STR_FUNCTION char str_char_at(Str str, int index) {
-    if (index < 0) {
-        index += str.length;
-    }
-    if (index > str.length) {
-        STR_ERROR("Index out of range\n");
-    }
-    return str.c_string[index];
-}
-
-STR_FUNCTION Str str_new_from_string(char *allocated_string) {
-    Str str;
-    str.c_string = allocated_string;
-    str.length = strlen(allocated_string);
-    return str;
-}
-
-STR_FUNCTION Str str_substr(Str str, uint32_t start, uint32_t end) {
-    if (start > str.length || end > str.length) {
-        STR_ERROR("Index out of range\n");
-    }
-    char *new_c_string = malloc(sizeof(char) * (end - start));
-    for (int i = start; i < end; i++) {
-        new_c_string[i] = str.c_string[i];
-    }
-    return str_new_from_string(new_c_string);
-}
-
-STR_FUNCTION Str str_pad_right(Str str, char padding, uint32_t target_length) {
-    while (str.length <= target_length) {
-        str.length++;
-        str.c_string = realloc(str.c_string, str.length);
-        str.c_string[str.length - 1] = padding;
-    }
-    str.c_string[str.length-1] = '\0';
-    str.length = strlen(str.c_string);
-    return str;
-}
-
-STR_FUNCTION Str str_pad_left(Str str, char padding, uint32_t target_length) {
-    str.c_string = realloc(str.c_string, sizeof(char) * target_length);
-    char *copy = malloc(sizeof(char) * str.length);
-    strcpy(copy, str.c_string);
-    for (int i = 0; i <= target_length; i++) {
-        str.c_string[i] = ' ';
-    }
-
-    for (int z = 0; z <= target_length; z++) {
-        str.c_string[z] = padding;
-    }
-
-    for (int i = 0; i <= str.length; i++) {
-        str.c_string[target_length-i] = copy[str.length - i];
-    }
-    str.length = strlen(str.c_string);
-    free(copy);
-    return str;
-}
-
-STR_FUNCTION Str str_mult(Str str, uint32_t amount) {
-    str.c_string = realloc(str.c_string, str.length * amount);
-    char *copy = malloc(sizeof(char) * str.length);
-    strcpy(copy, str.c_string);
-
-    for (int i = str.length; i < str.length * amount; i++) {
-        str.c_string[i] = copy[i % str.length];
-    }
-
-    str.length = strlen(str.c_string);
-    free(copy);
-    return str;
-}
-
-STR_FUNCTION Str str_from_file(FILE *file) {
-    fseek(file, 0, SEEK_END);
-    size_t length = ftell(file);
-    fseek(file, 0, SEEK_SET);
-    char *buffer = malloc(length);
-    fread(buffer, 1, length, file);
-    return str_new_from_string(buffer);
-}
-
-STR_FUNCTION Str str_push(Str str, char character) {
-    str.c_string = realloc(str.c_string, sizeof(char) * (str.length + 1));
-    str.length++;
-    str.c_string[str.length-1] = character;
-    return str;
-}
-
-STR_FUNCTION Str str_replace(Str str, char *dest, char *src) {
-    return str;
-}
-
-STR_FUNCTION char str_pop(Str *str) {
-    char character = str->c_string[str->length - 1];
-    str->c_string = realloc(str->c_string, sizeof(char) * (str->length - 1));
-    str->length--;
-    str->c_string[str->length] = '\0';
-    return character;
-}
-
-STR_FUNCTION bool str_equals(Str str1, Str str2) {
-    return strcmp(str1.c_string, str2.c_string) == 0;
-}
-
-STR_FUNCTION void str_free(Str str) {
-    free(str.c_string);
-}
-
-STR_FUNCTION void str_print(Str str) {
-    printf("%s\n", str.c_string);
+    free(array->strs);
+    free(array);
 }
 
 #endif
