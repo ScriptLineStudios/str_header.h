@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
-#include <stdint.h>
 #include <stdbool.h>
 
 #ifndef STR_HEADER
@@ -26,7 +25,7 @@ typedef struct {
 
 Str *str_new(char *string);
 StrArray *str_array_new();
-StrReader *str_file_reader_new(FILE *file);
+StrReader *str_reader_new(FILE *file);
 
 StrArray *str_split_by(Str *str, const char delim);
 
@@ -37,8 +36,8 @@ Str *str_read_line(StrReader *reader);
 void str_free(Str *str);
 void str_reader_free(StrReader *reader);
 
-void *str_realloc(Str *str, size_t new_size);
-void *str_append(Str *str, const char new_char);
+void str_realloc(Str *str, size_t new_size);
+void str_append(Str *str, const char new_char);
 
 #endif
 
@@ -97,7 +96,7 @@ Str *str_new(char *string) {
     Str *str = malloc(sizeof(Str));
     str->string = malloc(sizeof(char) * strlen(string));
     str->length = strlen(string);
-    for (int i = 0; i < str->length; i++) {
+    for (size_t i = 0; i < str->length; i++) {
         str->string[i] = string[i];
     }
     return str;
@@ -113,10 +112,10 @@ Str *str_new_blank(size_t length) {
 Str *str_concat(Str *str1, Str *str2) {
     size_t new_length = str1->length + str2->length;
     Str *new_str = str_new_blank(new_length);
-    for (int i = 0; i < str1->length; i++) {
+    for (size_t i = 0; i < str1->length; i++) {
         new_str->string[i] = str1->string[i];
     }
-    for (int i = str1->length; i < new_length; i++) {
+    for (size_t i = str1->length; i < new_length; i++) {
         new_str->string[i] = str2->string[i - str1->length];
     }
     str_free(str1);
@@ -124,9 +123,29 @@ Str *str_concat(Str *str1, Str *str2) {
     return new_str;
 }
 
-void str_resize(Str *str, size_t new_length) {
-    str->length = 0;
-    str->string = realloc(str->string, sizeof(char) * str->length);
+bool str_in(Str *str, const char find) {
+    for (size_t i = 0; i < str->length; i++) {
+        if (str->string[i] == find) {
+            return true;
+        }
+    }
+    return false;
+}
+
+Str *str_trim_left(Str *str) {
+    Str *new = str_new_blank(0);
+    bool add = false;
+    for (size_t i = 0; i < str->length; i++) {
+        if (str->string[i] != ' ') {
+            add = true;
+        }
+        if (add) {
+            str_append(new, str->string[i]);
+        }
+    }
+    new->string[new->length] = '\0';
+    str_free(str);
+    return new;
 }
 
 StrArray *str_split_by(Str *str, const char delim) {
@@ -134,10 +153,10 @@ StrArray *str_split_by(Str *str, const char delim) {
     StrArray *array = str_array_new();
     Str *tmp = str_new_blank(0);
 
-    int reference_count = 0;
+    size_t reference_count = 0;
     void **references = malloc(sizeof(void *) * reference_count);
     size_t size = 0;
-    for (int i = 0; i < str->length; i++) {
+    for (size_t i = 0; i < str->length; i++) {
         if (str->string[i] != delim) {
             str_append(tmp, str->string[i]);
             size++;
@@ -154,9 +173,10 @@ StrArray *str_split_by(Str *str, const char delim) {
             size = 0;
         }
     }
+    tmp->string[size] = '\0';
     str_array_add(array, str_copy(tmp));
 
-    for (int i = 0; i < reference_count; i++) {
+    for (size_t i = 0; i < reference_count; i++) {
         str_free(references[i]);
     }
     str_free(tmp);
@@ -165,12 +185,12 @@ StrArray *str_split_by(Str *str, const char delim) {
     return array;
 }
  
-void *str_realloc(Str *str, size_t new_size) {
+void str_realloc(Str *str, size_t new_size) {
     str->length = new_size;
     str->string = realloc(str->string, sizeof(char) * new_size);
 }
 
-void *str_append(Str *str, const char new_char) {
+void str_append(Str *str, const char new_char) {
     str_realloc(str, str->length + 1);
     str->string[str->length-1] = new_char;
 }
@@ -181,7 +201,7 @@ void str_free(Str *str) {
 }
 
 void str_array_free(StrArray *array) {
-    for (int i = 0; i < array->num_strs; i++) {
+    for (size_t i = 0; i < array->num_strs; i++) {
         str_free(array->strs[i]);
     }
     free(array->strs);
